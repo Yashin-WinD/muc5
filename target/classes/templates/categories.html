@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Quản lý Danh mục - GraphQL')}">
+</head>
+<body>
+    <!-- Navbar -->
+    <div th:replace="~{layout/base :: navbar}"></div>
+
+    <!-- Main Content -->
+    <main class="main-content py-4">
+        <div class="container">
+            <!-- Header Section -->
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+                <div>
+                    <h2 class="fw-bold mb-1"><i class="bi bi-tags text-primary me-2"></i> Quản lý Danh mục</h2>
+                    <p class="text-muted mb-0">Thực hiện CRUD, tìm kiếm và phân trang Danh mục qua GraphQL API</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary px-4 py-2 rounded-pill shadow-sm" onclick="openCreateCategoryModal()">
+                        <i class="bi bi-plus-circle me-1"></i> Thêm danh mục mới
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search Card -->
+            <div class="custom-card p-3 mb-4">
+                <form id="categoryFilterForm" onsubmit="event.preventDefault(); applyCategorySearch();" class="row g-2 align-items-center">
+                    <div class="col-12 col-md-8">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="categorySearchInput" class="form-control border-start-0" placeholder="Tìm theo tên danh mục...">
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search me-1"></i> Tìm kiếm
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetCategorySearch()">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Table Card -->
+            <div class="custom-card mb-4 overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">ID</th>
+                                <th style="width: 80px;">Biểu tượng</th>
+                                <th>Tên danh mục</th>
+                                <th>Mô tả</th>
+                                <th>Số lượng sản phẩm</th>
+                                <th class="text-end" style="width: 140px;">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoryTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2"></div> Đang tải dữ liệu danh mục qua GraphQL...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination Footer -->
+                <div class="p-3 border-top bg-light d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2" id="paginationWrapper">
+                    <div class="text-muted small" id="categoryPageInfo">Đang tải phân trang...</div>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0" id="categoryPaginationContainer"></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Create / Edit Category -->
+    <div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="categoryModalTitle"><i class="bi bi-tag me-2"></i> Thêm Danh Mục</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="categoryForm" onsubmit="event.preventDefault(); saveCategory();">
+                    <div class="modal-body">
+                        <input type="hidden" id="categoryId">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Tên danh mục <span class="text-danger">*</span></label>
+                            <input type="text" id="categoryName" class="form-control" required placeholder="Ví dụ: Phụ kiện thông minh">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Icon Bootstrap</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-star" id="iconPreview"></i></span>
+                                <input type="text" id="categoryIcon" class="form-control" value="bi-tag" placeholder="bi-laptop, bi-phone, bi-headphones..." oninput="updateIconPreview(this.value)">
+                            </div>
+                            <small class="text-muted">Nhập tên class icon từ Bootstrap Icons (VD: bi-laptop, bi-tablet, bi-watch...)</small>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold">Mô tả danh mục</label>
+                            <textarea id="categoryDescription" class="form-control" rows="3" placeholder="Mô tả về nhóm danh mục này..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-primary px-4" id="saveCategoryBtn">
+                            <i class="bi bi-check-lg me-1"></i> Lưu
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer & Scripts -->
+    <div th:replace="~{layout/base :: footer}"></div>
+    <div th:replace="~{layout/base :: scripts}"></div>
+
+    <!-- AJAX Category CRUD & Pagination Scripts -->
+    <script>
+        let currentCategoryPage = 0;
+        const categoryPageSize = 6;
+        let categorySearchKeyword = '';
+        let categoryModalInstance;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            categoryModalInstance = new bootstrap.Modal(document.getElementById('categoryModal'));
+            loadCategoriesPage(0);
+        });
+
+        function updateIconPreview(val) {
+            const preview = document.getElementById('iconPreview');
+            preview.className = `bi ${val.trim() || 'bi-tag'}`;
+        }
+
+        // 1. Phân trang & Tìm kiếm Danh mục qua GraphQL Query categoriesPage
+        async function loadCategoriesPage(page = 0) {
+            currentCategoryPage = page;
+            const tbody = document.getElementById('categoryTableBody');
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Đang tải dữ liệu...</td></tr>`;
+
+            const query = `
+                query GetCategoriesPage($search: String, $page: Int, $size: Int, $sortBy: String, $sortDir: String) {
+                    categoriesPage(search: $search, page: $page, size: $size, sortBy: $sortBy, sortDir: $sortDir) {
+                        content {
+                            id
+                            name
+                            description
+                            icon
+                            productCount
+                        }
+                        totalElements
+                        totalPages
+                        currentPage
+                        pageSize
+                        hasNext
+                        hasPrevious
+                    }
+                }
+            `;
+
+            const variables = {
+                search: categorySearchKeyword || null,
+                page: page,
+                size: categoryPageSize,
+                sortBy: "id",
+                sortDir: "DESC"
+            };
+
+            try {
+                const data = await graphqlFetch(query, variables);
+                renderCategoryTable(data.categoriesPage);
+                renderCategoryPagination(data.categoriesPage);
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> Lỗi: ${err.message}</td></tr>`;
+            }
+        }
+
+        function renderCategoryTable(pageData) {
+            const tbody = document.getElementById('categoryTableBody');
+            const list = pageData.content || [];
+
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-folder-x fs-3 d-block mb-2"></i> Không tìm thấy danh mục nào phù hợp!</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            list.forEach(c => {
+                const iconClass = c.icon || 'bi-tag';
+                html += `
+                    <tr>
+                        <td class="fw-bold text-muted">#${c.id}</td>
+                        <td>
+                            <div class="bg-light rounded p-2 text-center text-primary" style="width: 40px; height: 40px;">
+                                <i class="bi ${iconClass} fs-5"></i>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark fs-6">${c.name}</div>
+                        </td>
+                        <td>
+                            <span class="text-muted text-truncate d-inline-block" style="max-width: 350px;">
+                                ${c.description || 'Không có mô tả.'}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill">
+                                ${c.productCount || 0} sản phẩm
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-outline-primary btn-sm me-1" title="Chỉnh sửa" onclick="openEditCategoryModal('${c.id}')">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" title="Xóa" onclick="confirmDeleteCategory('${c.id}', '${c.name.replace(/'/g, "\\'")}')">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function renderCategoryPagination(pageData) {
+            const pageInfo = document.getElementById('categoryPageInfo');
+            const container = document.getElementById('categoryPaginationContainer');
+
+            pageInfo.innerHTML = `Hiển thị <strong>${pageData.content.length}</strong> / <strong>${pageData.totalElements}</strong> danh mục (Trang <strong>${pageData.currentPage + 1}</strong> / <strong>${Math.max(1, pageData.totalPages)}</strong>)`;
+
+            let html = '';
+            // Prev
+            html += `
+                <li class="page-item ${!pageData.hasPrevious ? 'disabled' : ''}">
+                    <a class="page-link" href="javascript:void(0)" onclick="loadCategoriesPage(${pageData.currentPage - 1})">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+            `;
+
+            for (let i = 0; i < pageData.totalPages; i++) {
+                html += `
+                    <li class="page-item ${i === pageData.currentPage ? 'active' : ''}">
+                        <a class="page-link" href="javascript:void(0)" onclick="loadCategoriesPage(${i})">${i + 1}</a>
+                    </li>
+                `;
+            }
+
+            // Next
+            html += `
+                <li class="page-item ${!pageData.hasNext ? 'disabled' : ''}">
+                    <a class="page-link" href="javascript:void(0)" onclick="loadCategoriesPage(${pageData.currentPage + 1})">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            `;
+            container.innerHTML = html;
+        }
+
+        function applyCategorySearch() {
+            categorySearchKeyword = document.getElementById('categorySearchInput').value.trim();
+            loadCategoriesPage(0);
+        }
+
+        function resetCategorySearch() {
+            document.getElementById('categorySearchInput').value = '';
+            categorySearchKeyword = '';
+            loadCategoriesPage(0);
+        }
+
+        // 2. Modal Thêm Danh mục
+        function openCreateCategoryModal() {
+            document.getElementById('categoryForm').reset();
+            document.getElementById('categoryId').value = '';
+            document.getElementById('categoryIcon').value = 'bi-tag';
+            updateIconPreview('bi-tag');
+            document.getElementById('categoryModalTitle').innerHTML = '<i class="bi bi-plus-circle me-2"></i> Thêm Danh Mục Mới';
+            categoryModalInstance.show();
+        }
+
+        // 3. Modal Sửa Danh mục (Gọi GraphQL query categoryById)
+        async function openEditCategoryModal(id) {
+            const query = `
+                query GetCategoryById($id: ID!) {
+                    categoryById(id: $id) {
+                        id
+                        name
+                        description
+                        icon
+                    }
+                }
+            `;
+            try {
+                const data = await graphqlFetch(query, { id: id });
+                const c = data.categoryById;
+                if (!c) {
+                    showToast('Không tìm thấy danh mục!', 'error');
+                    return;
+                }
+
+                document.getElementById('categoryId').value = c.id;
+                document.getElementById('categoryName').value = c.name;
+                document.getElementById('categoryDescription').value = c.description || '';
+                document.getElementById('categoryIcon').value = c.icon || 'bi-tag';
+                updateIconPreview(c.icon || 'bi-tag');
+
+                document.getElementById('categoryModalTitle').innerHTML = '<i class="bi bi-pencil-square me-2"></i> Cập Nhật Danh Mục #' + c.id;
+                categoryModalInstance.show();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        // 4. Lưu Danh mục (Gọi GraphQL Mutation createCategory hoặc updateCategory)
+        async function saveCategory() {
+            const id = document.getElementById('categoryId').value;
+            const input = {
+                name: document.getElementById('categoryName').value.trim(),
+                description: document.getElementById('categoryDescription').value.trim(),
+                icon: document.getElementById('categoryIcon').value.trim()
+            };
+
+            const btn = document.getElementById('saveCategoryBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang lưu...';
+
+            if (!id) {
+                // createCategory
+                const mutation = `
+                    mutation CreateCategory($input: CategoryInput!) {
+                        createCategory(input: $input) {
+                            id
+                            name
+                        }
+                    }
+                `;
+                try {
+                    await graphqlFetch(mutation, { input: input });
+                    showToast('Thêm danh mục thành công!');
+                    categoryModalInstance.hide();
+                    loadCategoriesPage(0);
+                } catch (err) {
+                    showToast(err.message, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Lưu';
+                }
+            } else {
+                // updateCategory
+                const mutation = `
+                    mutation UpdateCategory($id: ID!, $input: CategoryInput!) {
+                        updateCategory(id: $id, input: $input) {
+                            id
+                            name
+                        }
+                    }
+                `;
+                try {
+                    await graphqlFetch(mutation, { id: id, input: input });
+                    showToast('Cập nhật danh mục thành công!');
+                    categoryModalInstance.hide();
+                    loadCategoriesPage(currentCategoryPage);
+                } catch (err) {
+                    showToast(err.message, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Lưu';
+                }
+            }
+        }
+
+        // 5. Xóa Danh mục (Gọi GraphQL Mutation deleteCategory)
+        function confirmDeleteCategory(id, name) {
+            Swal.fire({
+                title: 'Xác nhận xóa danh mục?',
+                text: `Bạn có chắc muốn xóa danh mục "${name}" không? Tất cả sản phẩm thuộc danh mục cũng có thể bị ảnh hưởng!`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Đồng ý xóa',
+                cancelButtonText: 'Hủy'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const mutation = `
+                        mutation DeleteCategory($id: ID!) {
+                            deleteCategory(id: $id)
+                        }
+                    `;
+                    try {
+                        const data = await graphqlFetch(mutation, { id: id });
+                        if (data.deleteCategory) {
+                            showToast('Đã xóa danh mục thành công!');
+                            loadCategoriesPage(currentCategoryPage);
+                        } else {
+                            showToast('Không thể xóa danh mục!', 'error');
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'error');
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+com\example\graphql\service\CategoryServiceImpl.class
+com\example\graphql\service\ProductService.class
+com\example\graphql\dto\CategoryInput.class
+com\example\graphql\entity\Category.class
+com\example\graphql\SpringbootGraphqlApplication.class
+com\example\graphql\controller\ProductGraphQLController.class
+com\example\graphql\dto\PageResponse.class
+com\example\graphql\repository\CategoryRepository.class
+com\example\graphql\controller\CategoryGraphQLController.class
+com\example\graphql\repository\ProductRepository.class
+com\example\graphql\service\ProductServiceImpl.class
+com\example\graphql\dto\ProductInput.class
+com\example\graphql\controller\WebViewController.class
+com\example\graphql\entity\Product.class
+com\example\graphql\service\CategoryService.class

@@ -1,0 +1,100 @@
+type Category {
+    id: ID!
+    name: String!
+    description: String
+    icon: String
+    products: [Product]
+    productCount: Int
+}
+
+type Product {
+    id: ID!
+    title: String!
+    description: String
+    price: Float!
+    images: String
+    amount: Int
+    category: Category
+}
+
+input CategoryInput {
+    name: String!
+    description: String
+    icon: String
+}
+
+input ProductInput {
+    title: String!
+    description: String
+    price: Float!
+    images: String
+    amount: Int
+    categoryId: ID!
+}
+
+type ProductPage {
+    content: [Product]!
+    totalElements: Int!
+    totalPages: Int!
+    currentPage: Int!
+    pageSize: Int!
+    hasNext: Boolean!
+    hasPrevious: Boolean!
+}
+
+type CategoryPage {
+    content: [Category]!
+    totalElements: Int!
+    totalPages: Int!
+    currentPage: Int!
+    pageSize: Int!
+    hasNext: Boolean!
+    hasPrevious: Boolean!
+}
+
+type Query {
+    # 1. Hiển thị tất cả product có price từ thấp đến cao (hoặc cao đến thấp)
+    productsSortedByPrice(order: String = "ASC"): [Product]!
+
+    # 2. Lấy tất cả product của 01 category (hỗ trợ sắp xếp giá)
+    productsByCategory(categoryId: ID!, order: String = "ASC"): [Product]!
+
+    # 3. Lấy tất cả & chi tiết Category
+    categories: [Category]!
+    categoryById(id: ID!): Category
+
+    # 4. Lấy tất cả & chi tiết Product
+    products: [Product]!
+    productById(id: ID!): Product
+
+    # 5. Tìm kiếm có phân trang trên bảng Product
+    productsPage(
+        search: String,
+        categoryId: ID,
+        page: Int = 0,
+        size: Int = 6,
+        sortBy: String = "id",
+        sortDir: String = "DESC"
+    ): ProductPage!
+
+    # 6. Tìm kiếm có phân trang trên bảng Category
+    categoriesPage(
+        search: String,
+        page: Int = 0,
+        size: Int = 6,
+        sortBy: String = "id",
+        sortDir: String = "DESC"
+    ): CategoryPage!
+}
+
+type Mutation {
+    # CRUD Category
+    createCategory(input: CategoryInput!): Category!
+    updateCategory(id: ID!, input: CategoryInput!): Category!
+    deleteCategory(id: ID!): Boolean!
+
+    # CRUD Product
+    createProduct(input: ProductInput!): Product!
+    updateProduct(id: ID!, input: ProductInput!): Product!
+    deleteProduct(id: ID!): Boolean!
+}

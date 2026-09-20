@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>GraphiQL IDE - E-Store</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            width: 100%;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        #graphiql {
+            height: 100vh;
+        }
+    </style>
+    <!-- CDN tốc độ cao jsdelivr không bị lỗi 404 hay treo như unpkg -->
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://cdn.jsdelivr.net/npm/graphiql@3.0.10/graphiql.min.js" type="application/javascript"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/graphiql@3.0.10/graphiql.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@graphiql/plugin-explorer@1.0.0/dist/index.umd.js" crossorigin></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@graphiql/plugin-explorer@1.0.0/dist/style.css"/>
+</head>
+<body>
+<div id="graphiql">Đang tải GraphiQL IDE...</div>
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const path = params.get("path") || "/graphql";
+    const url = `${location.protocol}//${location.host}${path}`;
+    const wsPath = params.get("wsPath") || "/graphql";
+    const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const subscriptionUrl = `${wsProtocol}//${location.host}${wsPath}`;
+    const gqlFetcher = GraphiQL.createFetcher({'url': url, 'subscriptionUrl': subscriptionUrl});
+    const explorerPlugin = GraphiQLPluginExplorer.explorerPlugin();
+    
+    ReactDOM.render(
+        React.createElement(GraphiQL, {
+            fetcher: gqlFetcher,
+            defaultVariableEditorOpen: true,
+            headerEditorEnabled: true,
+            shouldPersistHeaders: true,
+            plugins: [explorerPlugin],
+            defaultQuery: `# Truy vấn tất cả sản phẩm sắp xếp giá từ thấp đến cao (Home)
+query GetAllProductsSortedByPrice {
+  productsSortedByPrice(order: "ASC") {
+    id
+    title
+    price
+    amount
+    category {
+      id
+      name
+    }
+  }
+}
+
+# Lấy sản phẩm theo 01 Category
+query GetProductsByCategory {
+  productsByCategory(categoryId: 1) {
+    id
+    title
+    price
+    category {
+      name
+    }
+  }
+}
+`
+        }),
+        document.getElementById('graphiql'),
+    );
+</script>
+</body>
+</html>
